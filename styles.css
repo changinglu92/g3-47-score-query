@@ -263,9 +263,14 @@ html, body {
 }
 
 .subject .rank {
-  margin-top: 8px;
-  font-size: 0.82rem;
-  color: var(--muted);
+  margin-top: 6px;
+  font-size: 0.95rem;
+  color: #c2410c;
+  font-weight: 700;
+  background: #fff7ed;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
 }
 
 .subject .delta {
@@ -330,7 +335,11 @@ html, body {
 .history-table tbody tr:nth-child(even) td:first-child { background: #fafbfd; }
 
 .history-table .num { font-variant-numeric: tabular-nums; font-weight: 600; }
-.history-table .rank-cell { color: var(--muted); font-weight: 500; }
+.history-table .rank-cell {
+  color: #c2410c;
+  font-weight: 700;
+  background: #fff7ed;
+}
 .history-table .empty { color: #cbd5e1; }
 
 .capture-area {
@@ -357,4 +366,14 @@ html, body {
   .toolbar, .query-card, .hero-sub, .footer, .hint { display: none !important; }
   .page { max-width: none; padding: 0; }
   .card { box-shadow: none; }
+}
+
+
+/* 总分级排 / 级排强调色 */
+.stat.rank-stat .value {
+  color: #c2410c;
+}
+.stat.rank-stat {
+  background: #fff7ed;
+  border-color: #fed7aa;
 }

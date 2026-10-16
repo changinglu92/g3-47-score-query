@@ -132,7 +132,7 @@
         <div class="value">${fmt(L["总分"])}</div>
         <div class="sub delta ${totalDelta.cls}">${totalDelta.text}</div>
       </div>
-      <div class="stat">
+      <div class="stat rank-stat">
         <div class="label">总分级排</div>
         <div class="value">${fmt(L["总分级排"], 0)}</div>
         <div class="sub">校方向名次</div>
