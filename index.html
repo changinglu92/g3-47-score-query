@@ -6,6 +6,7 @@
   <meta name="description" content="高三47班高三上学期第二次综合成绩查询" />
   <title>高三47班高三上学期第二次综合成绩查询</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
   <script src="app.js" defer></script>
 </head>
@@ -55,6 +56,33 @@
           </div>
           <div class="total-block" id="total-block"></div>
           <div class="subjects" id="subjects"></div>
+        </div>
+
+        <div class="card insight-card" id="trend-card">
+          <div class="section-title">
+            <h3>总分趋势</h3>
+            <span class="tag soft">最多展示 10 次有效总分</span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="trend-chart" aria-label="总分趋势折线图"></canvas>
+          </div>
+          <p id="trend-empty" class="empty-hint" hidden>暂无足够的总分数据绘制趋势图。</p>
+        </div>
+
+        <div class="card insight-card" id="progress-card">
+          <div class="section-title">
+            <h3>进退步看板</h3>
+            <span class="tag soft">校方向名次变化</span>
+          </div>
+          <div id="progress-board" class="progress-board"></div>
+        </div>
+
+        <div class="card insight-card" id="tips-card">
+          <div class="section-title">
+            <h3>给家长的阅读提示</h3>
+            <span class="tag soft">班主任建议</span>
+          </div>
+          <ul id="parent-tips" class="parent-tips"></ul>
         </div>
 
         <div class="card history-card">

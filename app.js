@@ -2,6 +2,7 @@
   "use strict";
 
   let STUDENTS = [];
+  let trendChart = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -17,7 +18,6 @@
     downloadBtn: $("download-btn"),
     studentName: $("student-name"),
     studentClass: $("student-class"),
-    studentLang: $("student-lang"),
     electives: $("electives"),
     totalBlock: $("total-block"),
     subjects: $("subjects"),
@@ -25,6 +25,10 @@
     examCount: $("exam-count"),
     langCol: $("lang-col"),
     capture: $("capture-area"),
+    trendCanvas: $("trend-chart"),
+    trendEmpty: $("trend-empty"),
+    progressBoard: $("progress-board"),
+    parentTips: $("parent-tips"),
   };
 
   function showError(msg) {
@@ -49,6 +53,12 @@
     return v === null || v === undefined || v === "" || v === "-" || v === "—";
   }
 
+  function numOrNull(v) {
+    if (isEmpty(v)) return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
   function fmt(v, digits) {
     if (isEmpty(v)) return "—";
     const n = Number(v);
@@ -60,12 +70,12 @@
   }
 
   function fmtDelta(v) {
-    if (isEmpty(v)) return { text: "—", cls: "flat", dir: "flat" };
+    if (isEmpty(v)) return { text: "—", cls: "flat", dir: "flat", n: null };
     const n = Number(v);
-    if (!Number.isFinite(n)) return { text: "—", cls: "flat", dir: "flat" };
-    if (n > 0) return { text: `进步 ${Math.abs(Math.round(n))} 名`, cls: "up", dir: "up" };
-    if (n < 0) return { text: `退步 ${Math.abs(Math.round(n))} 名`, cls: "down", dir: "down" };
-    return { text: "持平", cls: "flat", dir: "flat" };
+    if (!Number.isFinite(n)) return { text: "—", cls: "flat", dir: "flat", n: null };
+    if (n > 0) return { text: `进步 ${Math.abs(Math.round(n))} 名`, cls: "up", dir: "up", n };
+    if (n < 0) return { text: `退步 ${Math.abs(Math.round(n))} 名`, cls: "down", dir: "down", n };
+    return { text: "持平", cls: "flat", dir: "flat", n: 0 };
   }
 
   function cell(v, kind) {
@@ -100,7 +110,6 @@
       })
       .join("");
   }
-
 
   function miniLine(label, score, rank, delta) {
     const d = fmtDelta(delta);
@@ -189,11 +198,365 @@
     els.subjects.innerHTML = `<div class="subject-row">${row1}</div><div class="subject-row">${row2}</div>`;
   }
 
+  /** Collect up to 10 exams with valid 总分 (skip empties). */
+  function scoreSeries(student) {
+    const exams = student.exams || [];
+    const points = [];
+    for (const e of exams) {
+      const score = numOrNull(e["总分"]);
+      if (score === null) continue;
+      points.push({
+        label: e["阶段"] || "—",
+        score,
+        rank: numOrNull(e["级排"]),
+      });
+    }
+    return points.slice(-10);
+  }
+
+  function destroyTrendChart() {
+    if (trendChart) {
+      trendChart.destroy();
+      trendChart = null;
+    }
+  }
+
+  function renderTrend(student) {
+    const points = scoreSeries(student);
+    destroyTrendChart();
+
+    if (!points.length) {
+      els.trendCanvas.hidden = true;
+      els.trendEmpty.hidden = false;
+      return;
+    }
+
+    els.trendCanvas.hidden = false;
+    els.trendEmpty.hidden = true;
+
+    if (typeof Chart !== "function") {
+      els.trendEmpty.hidden = false;
+      els.trendEmpty.textContent = "图表组件加载中，请刷新后再试。";
+      return;
+    }
+
+    const labels = points.map((p) => p.label);
+    const scores = points.map((p) => p.score);
+    const lastIdx = points.length - 1;
+    const pointRadius = points.map((_, i) => (i === lastIdx ? 7 : 4));
+    const pointBg = points.map((_, i) => (i === lastIdx ? "#2563eb" : "#93c5fd"));
+    const pointBorder = points.map((_, i) => (i === lastIdx ? "#1d4ed8" : "#60a5fa"));
+
+    const ctx = els.trendCanvas.getContext("2d");
+    trendChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "总分",
+            data: scores,
+            borderColor: "#2563eb",
+            backgroundColor: "rgba(37, 99, 235, 0.12)",
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.25,
+            pointRadius,
+            pointHoverRadius: 8,
+            pointBackgroundColor: pointBg,
+            pointBorderColor: pointBorder,
+            pointBorderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const p = points[ctx.dataIndex];
+                const rank =
+                  p && p.rank !== null ? `，级排 ${Math.round(p.rank)}` : "";
+                return `总分 ${ctx.parsed.y}${rank}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 0,
+              font: { size: 11 },
+              color: "#6b7a90",
+            },
+            grid: { display: false },
+          },
+          y: {
+            ticks: {
+              font: { size: 11 },
+              color: "#6b7a90",
+            },
+            grid: { color: "#e6ecf5" },
+            title: {
+              display: true,
+              text: "总分",
+              color: "#6b7a90",
+              font: { size: 12 },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /** Subject deltas for progress board / tips. */
+  function collectDeltas(student) {
+    const L = student.latest || {};
+    const isJp = student.langLabel === "日语";
+    const items = [
+      { name: "总分", delta: L["总分进退步"], kind: "total" },
+      { name: "语文", delta: L["语文进退步"], kind: "subject" },
+      { name: "数学", delta: L["数学进退步"], kind: "subject" },
+      { name: "历史", delta: L["历史进退步"], kind: "subject" },
+      { name: "政治", delta: L["政治进退步"], kind: "subject" },
+      { name: "生物", delta: L["生物进退步"], kind: "subject" },
+    ];
+    if (isJp) {
+      items.push({ name: "日语", delta: L["日语进退步"], kind: "lang" });
+    } else {
+      items.push({ name: "英语总分", delta: L["英语总分进退步"], kind: "lang" });
+      items.push({ name: "听说", delta: L["听说进退步"], kind: "eng-part" });
+      items.push({ name: "笔试", delta: L["英语笔试进退步"], kind: "eng-part" });
+    }
+    return items.map((it) => {
+      const d = fmtDelta(it.delta);
+      return { ...it, ...d };
+    });
+  }
+
+  function renderProgressBoard(student) {
+    if (!student.latest) {
+      els.progressBoard.innerHTML =
+        '<p class="empty-hint">暂无第二次综合进退步数据。</p>';
+      return;
+    }
+
+    const items = collectDeltas(student);
+    const up = items.filter((i) => i.dir === "up").sort((a, b) => b.n - a.n);
+    const down = items.filter((i) => i.dir === "down").sort((a, b) => a.n - b.n);
+    const flat = items.filter((i) => i.dir === "flat" && i.n === 0);
+    const unknown = items.filter((i) => i.n === null);
+
+    const barItem = (it, tone) => {
+      const abs = Math.abs(Math.round(it.n));
+      const maxAbs = Math.max(
+        1,
+        ...items.filter((x) => x.n !== null).map((x) => Math.abs(x.n))
+      );
+      const pct = Math.min(100, Math.round((abs / maxAbs) * 100));
+      return `<div class="prog-item ${tone}">
+        <div class="prog-head">
+          <span class="prog-name">${it.name}</span>
+          <span class="prog-delta">${it.text}</span>
+        </div>
+        <div class="prog-bar-track"><div class="prog-bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+
+    const col = (title, list, tone, emptyText) => {
+      const body =
+        list.length > 0
+          ? list.map((it) => barItem(it, tone)).join("")
+          : `<p class="prog-empty">${emptyText}</p>`;
+      return `<div class="prog-col ${tone}">
+        <div class="prog-col-title">${title}</div>
+        <div class="prog-list">${body}</div>
+      </div>`;
+    };
+
+    let notes = "";
+    if (flat.length) {
+      notes += `<p class="prog-note">持平：${flat.map((i) => i.name).join("、")}</p>`;
+    }
+    if (unknown.length) {
+      notes += `<p class="prog-note muted">暂无进退步数据：${unknown.map((i) => i.name).join("、")}</p>`;
+    }
+    if (!up.length && !down.length && !flat.length) {
+      notes =
+        '<p class="prog-note">本次各科暂无可用的校方向进退步数据，可结合履历表查看分数变化。</p>';
+    }
+
+    els.progressBoard.innerHTML = `
+      <div class="prog-grid">
+        ${col("进步科目", up, "up", "本次暂无明显进步科目")}
+        ${col("需关注（退步）科目", down, "down", "本次暂无明显退步科目，继续保持！")}
+      </div>
+      ${notes}
+    `;
+  }
+
+  function describeTrend(points) {
+    if (points.length < 2) {
+      return points.length === 1
+        ? `目前只有 1 次有效总分记录（${points[0].label}：${fmt(points[0].score)} 分），后续考试会把曲线画得更完整。`
+        : null;
+    }
+    const scores = points.map((p) => p.score);
+    const last = scores[scores.length - 1];
+    const prev = scores[scores.length - 2];
+    const first = scores[0];
+    const diffs = [];
+    for (let i = 1; i < scores.length; i++) diffs.push(scores[i] - scores[i - 1]);
+    const allUp = diffs.every((d) => d > 0);
+    const allDown = diffs.every((d) => d < 0);
+    const swing = Math.max(...scores) - Math.min(...scores);
+    const recentUp = last > prev;
+    const recentDown = last < prev;
+
+    if (allUp) {
+      return `总分曲线呈连续上升：从 ${fmt(first)} 分提到 ${fmt(last)} 分，说明这段时间的学习状态在稳步向好，值得肯定。`;
+    }
+    if (allDown) {
+      return `总分曲线近期偏弱，从 ${fmt(first)} 分到 ${fmt(last)} 分。不必慌，先和孩子一起复盘薄弱环节，把下一阶段目标定具体一点。`;
+    }
+    if (swing >= 40 && recentUp) {
+      return `总分波动较大（高低相差约 ${fmt(Math.round(swing))} 分），但最近一次已回升到 ${fmt(last)} 分。稳住节奏、减少起伏，比单纯追分更重要。`;
+    }
+    if (swing >= 40 && recentDown) {
+      return `总分波动较大（高低相差约 ${fmt(Math.round(swing))} 分），最近一次略有回落。建议家长陪孩子看一眼哪几科拉分，避免一次性加压。`;
+    }
+    if (recentUp) {
+      return `最近一次总分较上场回升（${fmt(prev)} → ${fmt(last)}），曲线有抬头迹象，鼓励孩子把好的方法坚持下去。`;
+    }
+    if (recentDown) {
+      return `最近一次总分较上场略有回落（${fmt(prev)} → ${fmt(last)}）。波动很常见，重点是对照错题找原因，而不是只盯着数字。`;
+    }
+    return `总分整体在 ${fmt(Math.min(...scores))}–${fmt(Math.max(...scores))} 分区间波动，近期相对平稳。保持复盘习惯，小步前进即可。`;
+  }
+
+  function buildParentTips(student) {
+    const tips = [];
+    const name = student.name || "孩子";
+    const L = student.latest;
+    const points = scoreSeries(student);
+    const isJp = student.langLabel === "日语";
+    const items = collectDeltas(student);
+    const subjectsOnly = items.filter(
+      (i) => i.kind === "subject" || i.kind === "lang" || i.kind === "eng-part"
+    );
+
+    const trendTip = describeTrend(points);
+    if (trendTip) tips.push(trendTip);
+
+    if (L) {
+      const totalD = fmtDelta(L["总分进退步"]);
+      const rank = fmt(L["总分级排"], 0);
+      if (totalD.dir === "up") {
+        tips.push(
+          `第二次综合总分级排第 ${rank} 名，校方向进步 ${Math.abs(Math.round(totalD.n))} 名。请当面表扬具体努力（如错题本、定时练），比空泛夸「真棒」更有力量。`
+        );
+      } else if (totalD.dir === "down") {
+        tips.push(
+          `第二次综合总分级排第 ${rank} 名，校方向退步 ${Math.abs(Math.round(totalD.n))} 名。先倾听孩子感受，再一起挑 1–2 个可改进点，避免翻旧账。`
+        );
+      } else if (totalD.n === 0) {
+        tips.push(
+          `第二次综合总分级排第 ${rank} 名，较上场持平。稳住现有节奏的同时，可给自己定一个小目标（比如薄弱科周练）。`
+        );
+      } else {
+        tips.push(`第二次综合总分级排第 ${rank} 名。结合下方科目变化，和孩子一起看优势科与待加强科即可。`);
+      }
+    }
+
+    const upSubs = subjectsOnly
+      .filter((i) => i.dir === "up")
+      .sort((a, b) => b.n - a.n);
+    const downSubs = subjectsOnly
+      .filter((i) => i.dir === "down")
+      .sort((a, b) => a.n - b.n);
+
+    if (upSubs.length) {
+      const top = upSubs.slice(0, 2);
+      const desc = top
+        .map((i) => `${i.name}（进步 ${Math.abs(Math.round(i.n))} 名）`)
+        .join("、");
+      tips.push(`进步最明显的是 ${desc}。可请孩子分享这科怎么学的，把成功经验迁移到其他科目。`);
+    }
+
+    if (downSubs.length) {
+      const worst = downSubs.slice(0, 2);
+      const desc = worst
+        .map((i) => `${i.name}（退步 ${Math.abs(Math.round(i.n))} 名）`)
+        .join("、");
+      tips.push(`需优先关注：${desc}。建议本周各安排一次短复盘（错因分类 + 同类题重做），比盲目加时更有效。`);
+    }
+
+    if (!isJp) {
+      const written = items.find((i) => i.name === "笔试");
+      const listen = items.find((i) => i.name === "听说");
+      if (
+        written &&
+        written.dir === "down" &&
+        Math.abs(written.n) >= 10 &&
+        listen &&
+        (listen.dir === "flat" || listen.n === null || Math.abs(listen.n || 0) <= 5)
+      ) {
+        tips.push(
+          "英语方面：笔试名次回落较明显，听说基本持平。近期可把重心放在笔试（阅读精读、完形/改错错因、词汇滚动），听说维持日常即可。"
+        );
+      } else if (written && written.dir === "down" && Math.abs(written.n) >= 15) {
+        tips.push(
+          "英语笔试进退步幅度较大，建议对照最近两次卷面，把失分集中在 1–2 类题型上突破。"
+        );
+      }
+    } else {
+      const jp = items.find((i) => i.name === "日语");
+      if (jp && jp.dir === "down" && Math.abs(jp.n) >= 5) {
+        tips.push(
+          `日语本次校方向退步 ${Math.abs(Math.round(jp.n))} 名，建议和日语老师沟通薄弱板块（词汇/语法/阅读），制定一周小目标。`
+        );
+      } else if (jp && jp.dir === "up") {
+        tips.push(
+          `日语本次进步 ${Math.abs(Math.round(jp.n))} 名，继续保持听力与阅读的每日输入，巩固优势。`
+        );
+      } else if (jp && jp.n !== null) {
+        tips.push("日语作为选考外语，请继续关注日常听说与阅读输入，保持稳定输出。");
+      }
+    }
+
+    tips.push(
+      `建议亲子复盘：选一个轻松时段，让${name}自己讲「哪科最有把握、哪科最想突破」，家长只做提问与记录，共同定下周 1–2 个小行动。另请留意：10 月 29 日高三家长会（具体时间地点另行通知），欢迎到场交流。`
+    );
+
+    // Keep 3–6 tips
+    let out = tips.filter(Boolean);
+    if (out.length > 6) out = out.slice(0, 5).concat(out[out.length - 1]);
+    while (out.length < 3) {
+      out.push(
+        "成绩只是阶段性反馈。保持作息与情绪稳定，比单次名次更重要；有需要随时和班主任沟通。"
+      );
+    }
+    return out.slice(0, 6);
+  }
+
+  function renderParentTips(student) {
+    const tips = buildParentTips(student);
+    els.parentTips.innerHTML = tips.map((t) => `<li>${t}</li>`).join("");
+  }
+
   function renderStudent(student) {
     els.studentName.textContent = student.name;
     const klass = (student.latest && student.latest["班级"]) || "高三年级47班";
     els.studentClass.textContent = klass;
     renderLatest(student);
+    renderTrend(student);
+    renderProgressBoard(student);
+    renderParentTips(student);
     renderHistory(student);
     els.querySection.hidden = true;
     els.resultSection.hidden = false;
@@ -201,6 +564,7 @@
   }
 
   function resetView() {
+    destroyTrendChart();
     els.resultSection.hidden = true;
     els.querySection.hidden = false;
     clearError();
