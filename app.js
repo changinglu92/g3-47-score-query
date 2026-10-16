@@ -2,7 +2,8 @@
   "use strict";
 
   let STUDENTS = [];
-  let trendChart = null;
+  let scoreTrendChart = null;
+  let rankTrendChart = null;
 
   const $ = (id) => document.getElementById(id);
 
@@ -27,6 +28,8 @@
     capture: $("capture-area"),
     trendCanvas: $("trend-chart"),
     trendEmpty: $("trend-empty"),
+    rankTrendCanvas: $("rank-trend-chart"),
+    rankTrendEmpty: $("rank-trend-empty"),
     progressBoard: $("progress-board"),
     parentTips: $("parent-tips"),
   };
@@ -131,7 +134,7 @@
       <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
       <div class="eng-split">
         ${miniLine("听说", L["听说"], L["听说级排"], L["听说进退步"])}
-        ${miniLine("英语", L["英语笔试"], L["英语笔试级排"], L["英语笔试进退步"])}
+        ${miniLine("英语笔试", L["英语笔试"], L["英语笔试级排"], L["英语笔试进退步"])}
       </div>
     </div>`;
   }
@@ -214,20 +217,89 @@
     return points.slice(-10);
   }
 
-  function destroyTrendChart() {
-    if (trendChart) {
-      trendChart.destroy();
-      trendChart = null;
+  /** Draw numeric labels above each point (no extra CDN plugin). */
+  const valueLabelPlugin = {
+    id: "valueLabels",
+    afterDatasetsDraw(chart, _args, pluginOpts) {
+      const { ctx } = chart;
+      const color = (pluginOpts && pluginOpts.color) || "#1a2332";
+      const offset = (pluginOpts && pluginOpts.offset) || 8;
+      chart.data.datasets.forEach((dataset, di) => {
+        const meta = chart.getDatasetMeta(di);
+        if (meta.hidden) return;
+        meta.data.forEach((el, index) => {
+          const raw = dataset.data[index];
+          if (raw === null || raw === undefined || Number.isNaN(Number(raw))) return;
+          if (!el || typeof el.x !== "number" || typeof el.y !== "number") return;
+          const text = String(Math.round(Number(raw)));
+          ctx.save();
+          ctx.font = "600 11px PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif";
+          ctx.fillStyle = color;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
+          ctx.fillText(text, el.x, el.y - offset);
+          ctx.restore();
+        });
+      });
+    },
+  };
+
+  function destroyTrendCharts() {
+    if (scoreTrendChart) {
+      scoreTrendChart.destroy();
+      scoreTrendChart = null;
+    }
+    if (rankTrendChart) {
+      rankTrendChart.destroy();
+      rankTrendChart = null;
     }
   }
 
-  function renderTrend(student) {
-    const points = scoreSeries(student);
-    destroyTrendChart();
+  function baseLineOptions(yTitle, extraY) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      layout: { padding: { top: 18, right: 8 } },
+      plugins: {
+        legend: { display: false },
+        valueLabels: { color: "#1a2332", offset: 8 },
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxRotation: 45,
+            minRotation: 0,
+            font: { size: 11 },
+            color: "#6b7a90",
+          },
+          grid: { display: false },
+        },
+        y: Object.assign(
+          {
+            ticks: {
+              font: { size: 11 },
+              color: "#6b7a90",
+            },
+            grid: { color: "#e6ecf5" },
+            title: {
+              display: true,
+              text: yTitle,
+              color: "#6b7a90",
+              font: { size: 12 },
+            },
+          },
+          extraY || {}
+        ),
+      },
+    };
+  }
 
+  function renderScoreTrend(points) {
     if (!points.length) {
       els.trendCanvas.hidden = true;
       els.trendEmpty.hidden = false;
+      els.trendEmpty.textContent = "暂无足够的总分数据绘制趋势图。";
       return;
     }
 
@@ -247,8 +319,20 @@
     const pointBg = points.map((_, i) => (i === lastIdx ? "#2563eb" : "#93c5fd"));
     const pointBorder = points.map((_, i) => (i === lastIdx ? "#1d4ed8" : "#60a5fa"));
 
+    const opts = baseLineOptions("总分");
+    opts.plugins.tooltip = {
+      callbacks: {
+        label(ctx) {
+          const p = points[ctx.dataIndex];
+          const rank =
+            p && p.rank !== null ? `，级排 ${Math.round(p.rank)}` : "";
+          return `总分 ${ctx.parsed.y}${rank}`;
+        },
+      },
+    };
+
     const ctx = els.trendCanvas.getContext("2d");
-    trendChart = new Chart(ctx, {
+    scoreTrendChart = new Chart(ctx, {
       type: "line",
       data: {
         labels,
@@ -269,49 +353,91 @@
           },
         ],
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label(ctx) {
-                const p = points[ctx.dataIndex];
-                const rank =
-                  p && p.rank !== null ? `，级排 ${Math.round(p.rank)}` : "";
-                return `总分 ${ctx.parsed.y}${rank}`;
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            ticks: {
-              maxRotation: 45,
-              minRotation: 0,
-              font: { size: 11 },
-              color: "#6b7a90",
-            },
-            grid: { display: false },
-          },
-          y: {
-            ticks: {
-              font: { size: 11 },
-              color: "#6b7a90",
-            },
-            grid: { color: "#e6ecf5" },
-            title: {
-              display: true,
-              text: "总分",
-              color: "#6b7a90",
-              font: { size: 12 },
-            },
-          },
+      options: opts,
+      plugins: [valueLabelPlugin],
+    });
+  }
+
+  function renderRankTrend(points) {
+    // Prefer aligned labels with score series; null gaps for missing ranks.
+    const hasAnyRank = points.some((p) => p.rank !== null);
+
+    if (!hasAnyRank) {
+      els.rankTrendCanvas.hidden = true;
+      els.rankTrendEmpty.hidden = false;
+      els.rankTrendEmpty.textContent = "暂无足够的级排数据绘制趋势图。";
+      return;
+    }
+
+    els.rankTrendCanvas.hidden = false;
+    els.rankTrendEmpty.hidden = true;
+
+    if (typeof Chart !== "function") {
+      els.rankTrendEmpty.hidden = false;
+      els.rankTrendEmpty.textContent = "图表组件加载中，请刷新后再试。";
+      return;
+    }
+
+    const labels = points.map((p) => p.label);
+    const ranks = points.map((p) => p.rank);
+    const lastIdx = points.length - 1;
+    const pointRadius = points.map((p, i) => {
+      if (p.rank === null) return 0;
+      return i === lastIdx ? 7 : 4;
+    });
+    const pointBg = points.map((p, i) => {
+      if (p.rank === null) return "transparent";
+      return i === lastIdx ? "#c2410c" : "#fdba74";
+    });
+    const pointBorder = points.map((p, i) => {
+      if (p.rank === null) return "transparent";
+      return i === lastIdx ? "#9a3412" : "#fb923c";
+    });
+
+    const opts = baseLineOptions("级排（越小越好）", { reverse: true });
+    opts.plugins.valueLabels = { color: "#9a3412", offset: 8 };
+    opts.plugins.tooltip = {
+      callbacks: {
+        label(ctx) {
+          if (ctx.parsed.y === null || ctx.parsed.y === undefined) return "级排 —";
+          return `级排 ${Math.round(ctx.parsed.y)}`;
         },
       },
+    };
+
+    const ctx = els.rankTrendCanvas.getContext("2d");
+    rankTrendChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "级排",
+            data: ranks,
+            borderColor: "#ea580c",
+            backgroundColor: "rgba(234, 88, 12, 0.10)",
+            borderWidth: 2.5,
+            fill: true,
+            tension: 0.25,
+            spanGaps: true,
+            pointRadius,
+            pointHoverRadius: 8,
+            pointBackgroundColor: pointBg,
+            pointBorderColor: pointBorder,
+            pointBorderWidth: 2,
+          },
+        ],
+      },
+      options: opts,
+      plugins: [valueLabelPlugin],
     });
+  }
+
+  function renderTrend(student) {
+    const points = scoreSeries(student);
+    destroyTrendCharts();
+    renderScoreTrend(points);
+    renderRankTrend(points);
   }
 
   /** Subject deltas for progress board / tips. */
@@ -331,7 +457,7 @@
     } else {
       items.push({ name: "英语总分", delta: L["英语总分进退步"], kind: "lang" });
       items.push({ name: "听说", delta: L["听说进退步"], kind: "eng-part" });
-      items.push({ name: "笔试", delta: L["英语笔试进退步"], kind: "eng-part" });
+      items.push({ name: "英语笔试", delta: L["英语笔试进退步"], kind: "eng-part" });
     }
     return items.map((it) => {
       const d = fmtDelta(it.delta);
@@ -497,7 +623,7 @@
     }
 
     if (!isJp) {
-      const written = items.find((i) => i.name === "笔试");
+      const written = items.find((i) => i.name === "英语笔试");
       const listen = items.find((i) => i.name === "听说");
       if (
         written &&
@@ -564,7 +690,7 @@
   }
 
   function resetView() {
-    destroyTrendChart();
+    destroyTrendCharts();
     els.resultSection.hidden = true;
     els.querySection.hidden = false;
     clearError();
