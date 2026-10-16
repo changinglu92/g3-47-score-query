@@ -168,7 +168,6 @@
     els.studentName.textContent = student.name;
     const klass = (student.latest && student.latest["班级"]) || "高三年级47班";
     els.studentClass.textContent = klass;
-    els.studentLang.textContent = student.langLabel === "日语" ? "日语" : "英语";
     renderLatest(student);
     renderHistory(student);
     els.querySection.hidden = true;
