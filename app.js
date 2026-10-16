@@ -63,8 +63,8 @@
     if (isEmpty(v)) return { text: "—", cls: "flat", dir: "flat" };
     const n = Number(v);
     if (!Number.isFinite(n)) return { text: "—", cls: "flat", dir: "flat" };
-    if (n > 0) return { text: `进步 ${Math.abs(Math.round(n))}`, cls: "up", dir: "up" };
-    if (n < 0) return { text: `退步 ${Math.abs(Math.round(n))}`, cls: "down", dir: "down" };
+    if (n > 0) return { text: `进步 ${Math.abs(Math.round(n))} 名`, cls: "up", dir: "up" };
+    if (n < 0) return { text: `退步 ${Math.abs(Math.round(n))} 名`, cls: "down", dir: "down" };
     return { text: "持平", cls: "flat", dir: "flat" };
   }
 
@@ -109,7 +109,7 @@
       <div class="name">${name}</div>
       <div class="score">${empty ? "—" : fmt(score)}</div>
       <div class="rank">级排 ${isEmpty(rank) ? "—" : fmt(rank, 0)}</div>
-      <div class="delta ${d.cls}">校方向进退步：${d.text}</div>
+      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
     </div>`;
   }
 
@@ -150,16 +150,18 @@
     const langRank = isJp ? L["日语级排"] : L["英语总分级排"];
     const langDelta = isJp ? L["日语进退步"] : null;
 
-    const cards = [
+    const row1 = [
       subjectCard("语文", L["语文"], L["语文级排"], L["语文进退步"]),
       subjectCard("数学", L["数学"], L["数学级排"], L["数学进退步"]),
       subjectCard(langName, langScore, langRank, langDelta),
+    ].join("");
+    const row2 = [
       subjectCard("历史", L["历史"], L["历史级排"], L["历史进退步"]),
       subjectCard("政治", L["政治"], L["政治级排"], L["政治进退步"]),
       subjectCard("生物", L["生物学"] ?? L["生物"], L["生物级排"], L["生物进退步"]),
-    ];
+    ].join("");
 
-    els.subjects.innerHTML = cards.join("");
+    els.subjects.innerHTML = `<div class="subject-row">${row1}</div><div class="subject-row">${row2}</div>`;
   }
 
   function renderStudent(student) {
