@@ -101,6 +101,32 @@
       .join("");
   }
 
+
+  function miniLine(label, score, rank, delta) {
+    const d = fmtDelta(delta);
+    return `<div class="eng-mini">
+      <div class="eng-mini-top"><span class="eng-mini-name">${label}</span><span class="eng-mini-score">${isEmpty(score) ? "—" : fmt(score)}</span></div>
+      <div class="eng-mini-meta">级排 ${isEmpty(rank) ? "—" : fmt(rank, 0)}</div>
+      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
+    </div>`;
+  }
+
+  function englishCard(L) {
+    const d = fmtDelta(L["英语总分进退步"]);
+    const empty = isEmpty(L["英语总分"]);
+    const dirCls = empty ? "" : d.dir === "up" || d.dir === "down" ? d.dir : "";
+    return `<div class="subject subject-eng ${dirCls}">
+      <div class="name">英语总分</div>
+      <div class="score">${empty ? "—" : fmt(L["英语总分"])}</div>
+      <div class="rank">级排 ${isEmpty(L["英语总分级排"]) ? "—" : fmt(L["英语总分级排"], 0)}</div>
+      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
+      <div class="eng-split">
+        ${miniLine("听说", L["听说"], L["听说级排"], L["听说进退步"])}
+        ${miniLine("英语", L["英语笔试"], L["英语笔试级排"], L["英语笔试进退步"])}
+      </div>
+    </div>`;
+  }
+
   function subjectCard(name, score, rank, delta) {
     const d = fmtDelta(delta);
     const empty = isEmpty(score);
@@ -145,15 +171,14 @@
     `;
 
     const isJp = student.langLabel === "日语";
-    const langName = isJp ? "日语" : "英语总分";
-    const langScore = isJp ? L["日语"] : L["英语总分"];
-    const langRank = isJp ? L["日语级排"] : L["英语总分级排"];
-    const langDelta = isJp ? L["日语进退步"] : null;
+    const langCard = isJp
+      ? subjectCard("日语", L["日语"], L["日语级排"], L["日语进退步"])
+      : englishCard(L);
 
     const row1 = [
       subjectCard("语文", L["语文"], L["语文级排"], L["语文进退步"]),
       subjectCard("数学", L["数学"], L["数学级排"], L["数学进退步"]),
-      subjectCard(langName, langScore, langRank, langDelta),
+      langCard,
     ].join("");
     const row2 = [
       subjectCard("历史", L["历史"], L["历史级排"], L["历史进退步"]),

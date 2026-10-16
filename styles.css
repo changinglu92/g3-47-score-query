@@ -394,3 +394,50 @@ html, body {
   background: #fff7ed;
   border-color: #fed7aa;
 }
+
+
+.subject-eng {
+  text-align: center;
+}
+.eng-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+.eng-mini {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 8px 6px;
+  text-align: center;
+}
+.eng-mini-top {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.eng-mini-name {
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+.eng-mini-score {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text);
+}
+.eng-mini-meta {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: #c2410c;
+  font-weight: 700;
+}
+.eng-mini .delta {
+  margin-top: 4px;
+  font-size: 0.75rem;
+}
+@media (max-width: 640px) {
+  .eng-split { grid-template-columns: 1fr; }
+}
