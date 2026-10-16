@@ -217,13 +217,36 @@
     return points.slice(-10);
   }
 
+  /** Narrow phone (iPhone-class) — smaller chart fonts / padding. */
+  function isNarrowScreen() {
+    return typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches;
+  }
+
+  function chartUiScale() {
+    const narrow = isNarrowScreen();
+    return {
+      narrow,
+      labelFontPx: narrow ? 10 : 11,
+      tickFont: narrow ? 9 : 11,
+      titleFont: narrow ? 10 : 12,
+      layoutPad: narrow ? { top: 14, right: 4, left: 2, bottom: 2 } : { top: 18, right: 8 },
+      labelOffset: narrow ? 6 : 8,
+      pointLast: narrow ? 5 : 7,
+      pointNormal: narrow ? 3 : 4,
+      pointHover: narrow ? 6 : 8,
+      borderWidth: narrow ? 2 : 2.5,
+    };
+  }
+
   /** Draw numeric labels above each point (no extra CDN plugin). */
   const valueLabelPlugin = {
     id: "valueLabels",
     afterDatasetsDraw(chart, _args, pluginOpts) {
       const { ctx } = chart;
       const color = (pluginOpts && pluginOpts.color) || "#1a2332";
-      const offset = (pluginOpts && pluginOpts.offset) || 8;
+      const ui = chartUiScale();
+      const offset = (pluginOpts && pluginOpts.offset) || ui.labelOffset;
+      const fontPx = (pluginOpts && pluginOpts.fontSize) || ui.labelFontPx;
       chart.data.datasets.forEach((dataset, di) => {
         const meta = chart.getDatasetMeta(di);
         if (meta.hidden) return;
@@ -233,7 +256,7 @@
           if (!el || typeof el.x !== "number" || typeof el.y !== "number") return;
           const text = String(Math.round(Number(raw)));
           ctx.save();
-          ctx.font = "600 11px PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif";
+          ctx.font = `600 ${fontPx}px PingFang SC, Noto Sans SC, Microsoft YaHei, sans-serif`;
           ctx.fillStyle = color;
           ctx.textAlign = "center";
           ctx.textBaseline = "bottom";
@@ -256,21 +279,24 @@
   }
 
   function baseLineOptions(yTitle, extraY) {
+    const ui = chartUiScale();
     return {
       responsive: true,
       maintainAspectRatio: false,
       animation: false,
-      layout: { padding: { top: 18, right: 8 } },
+      layout: { padding: ui.layoutPad },
       plugins: {
         legend: { display: false },
-        valueLabels: { color: "#1a2332", offset: 8 },
+        valueLabels: { color: "#1a2332", offset: ui.labelOffset, fontSize: ui.labelFontPx },
       },
       scales: {
         x: {
           ticks: {
             maxRotation: 45,
             minRotation: 0,
-            font: { size: 11 },
+            autoSkip: true,
+            maxTicksLimit: ui.narrow ? 6 : 10,
+            font: { size: ui.tickFont },
             color: "#6b7a90",
           },
           grid: { display: false },
@@ -278,15 +304,16 @@
         y: Object.assign(
           {
             ticks: {
-              font: { size: 11 },
+              font: { size: ui.tickFont },
               color: "#6b7a90",
+              maxTicksLimit: ui.narrow ? 5 : 8,
             },
             grid: { color: "#e6ecf5" },
             title: {
               display: true,
               text: yTitle,
               color: "#6b7a90",
-              font: { size: 12 },
+              font: { size: ui.titleFont },
             },
           },
           extraY || {}
@@ -315,7 +342,8 @@
     const labels = points.map((p) => p.label);
     const scores = points.map((p) => p.score);
     const lastIdx = points.length - 1;
-    const pointRadius = points.map((_, i) => (i === lastIdx ? 7 : 4));
+    const ui = chartUiScale();
+    const pointRadius = points.map((_, i) => (i === lastIdx ? ui.pointLast : ui.pointNormal));
     const pointBg = points.map((_, i) => (i === lastIdx ? "#2563eb" : "#93c5fd"));
     const pointBorder = points.map((_, i) => (i === lastIdx ? "#1d4ed8" : "#60a5fa"));
 
@@ -342,11 +370,11 @@
             data: scores,
             borderColor: "#2563eb",
             backgroundColor: "rgba(37, 99, 235, 0.12)",
-            borderWidth: 2.5,
+            borderWidth: ui.borderWidth,
             fill: true,
             tension: 0.25,
             pointRadius,
-            pointHoverRadius: 8,
+            pointHoverRadius: ui.pointHover,
             pointBackgroundColor: pointBg,
             pointBorderColor: pointBorder,
             pointBorderWidth: 2,
@@ -381,9 +409,10 @@
     const labels = points.map((p) => p.label);
     const ranks = points.map((p) => p.rank);
     const lastIdx = points.length - 1;
+    const ui = chartUiScale();
     const pointRadius = points.map((p, i) => {
       if (p.rank === null) return 0;
-      return i === lastIdx ? 7 : 4;
+      return i === lastIdx ? ui.pointLast : ui.pointNormal;
     });
     const pointBg = points.map((p, i) => {
       if (p.rank === null) return "transparent";
@@ -395,7 +424,7 @@
     });
 
     const opts = baseLineOptions("级排（越小越好）", { reverse: true });
-    opts.plugins.valueLabels = { color: "#9a3412", offset: 8 };
+    opts.plugins.valueLabels = { color: "#9a3412", offset: ui.labelOffset, fontSize: ui.labelFontPx };
     opts.plugins.tooltip = {
       callbacks: {
         label(ctx) {
@@ -416,12 +445,12 @@
             data: ranks,
             borderColor: "#ea580c",
             backgroundColor: "rgba(234, 88, 12, 0.10)",
-            borderWidth: 2.5,
+            borderWidth: ui.borderWidth,
             fill: true,
             tension: 0.25,
             spanGaps: true,
             pointRadius,
-            pointHoverRadius: 8,
+            pointHoverRadius: ui.pointHover,
             pointBackgroundColor: pointBg,
             pointBorderColor: pointBorder,
             pointBorderWidth: 2,
