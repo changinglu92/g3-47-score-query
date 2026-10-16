@@ -73,12 +73,13 @@
   }
 
   function fmtDelta(v) {
-    if (isEmpty(v)) return { text: "—", cls: "flat", dir: "flat", n: null };
+    if (isEmpty(v)) return { text: "—", short: "—", cls: "flat", dir: "flat", n: null };
     const n = Number(v);
-    if (!Number.isFinite(n)) return { text: "—", cls: "flat", dir: "flat", n: null };
-    if (n > 0) return { text: `进步 ${Math.abs(Math.round(n))} 名`, cls: "up", dir: "up", n };
-    if (n < 0) return { text: `退步 ${Math.abs(Math.round(n))} 名`, cls: "down", dir: "down", n };
-    return { text: "持平", cls: "flat", dir: "flat", n: 0 };
+    if (!Number.isFinite(n)) return { text: "—", short: "—", cls: "flat", dir: "flat", n: null };
+    const abs = Math.abs(Math.round(n));
+    if (n > 0) return { text: `进步 ${abs} 名`, short: `+${abs}`, cls: "up", dir: "up", n };
+    if (n < 0) return { text: `退步 ${abs} 名`, short: `−${abs}`, cls: "down", dir: "down", n };
+    return { text: "持平", short: "0", cls: "flat", dir: "flat", n: 0 };
   }
 
   function cell(v, kind) {
@@ -94,7 +95,7 @@
     els.historyBody.innerHTML = exams
       .map((e) => {
         return `<tr>
-          <td>${e["阶段"] || "—"}</td>
+          <td class="stage-cell">${e["阶段"] || "—"}</td>
           ${cell(e["总分"])}
           ${cell(e["级排"], "rank")}
           ${cell(e["语文"])}
@@ -119,7 +120,7 @@
     return `<div class="eng-mini">
       <div class="eng-mini-top"><span class="eng-mini-name">${label}</span><span class="eng-mini-score">${isEmpty(score) ? "—" : fmt(score)}</span></div>
       <div class="eng-mini-meta">级排 ${isEmpty(rank) ? "—" : fmt(rank, 0)}</div>
-      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
+      <div class="delta ${d.cls}"><span class="delta-label">进退步</span><span class="delta-value"><span class="delta-full">${d.text}</span><span class="delta-compact">${d.short}</span></span></div>
     </div>`;
   }
 
@@ -131,7 +132,7 @@
       <div class="name">英语总分</div>
       <div class="score">${empty ? "—" : fmt(L["英语总分"])}</div>
       <div class="rank">级排 ${isEmpty(L["英语总分级排"]) ? "—" : fmt(L["英语总分级排"], 0)}</div>
-      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
+      <div class="delta ${d.cls}"><span class="delta-label">进退步</span><span class="delta-value"><span class="delta-full">${d.text}</span><span class="delta-compact">${d.short}</span></span></div>
       <div class="eng-split">
         ${miniLine("听说", L["听说"], L["听说级排"], L["听说进退步"])}
         ${miniLine("英语笔试", L["英语笔试"], L["英语笔试级排"], L["英语笔试进退步"])}
@@ -147,7 +148,7 @@
       <div class="name">${name}</div>
       <div class="score">${empty ? "—" : fmt(score)}</div>
       <div class="rank">级排 ${isEmpty(rank) ? "—" : fmt(rank, 0)}</div>
-      <div class="delta ${d.cls}"><span class="delta-label">校方向进退步：</span><span class="delta-value">${d.text}</span></div>
+      <div class="delta ${d.cls}"><span class="delta-label">进退步</span><span class="delta-value"><span class="delta-full">${d.text}</span><span class="delta-compact">${d.short}</span></span></div>
     </div>`;
   }
 
