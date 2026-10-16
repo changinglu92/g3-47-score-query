@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="高三47班成绩查询" />
+  <title>高三47班成绩查询</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-badge">明理 · 高三</div>
+      <h1>高三47班成绩查询</h1>
+      <p class="hero-sub">输入姓名与身份证号查询成绩履历与第二次综合考试成绩单</p>
+    </header>
+
+    <section id="query-section" class="card query-card">
+      <form id="query-form" autocomplete="off">
+        <label class="field">
+          <span>姓名</span>
+          <input id="name-input" name="name" type="text" placeholder="请输入学生姓名" required maxlength="20" />
+        </label>
+        <label class="field">
+          <span>身份证号</span>
+          <input id="id-input" name="id" type="text" inputmode="text" placeholder="请输入18位身份证号" required maxlength="18" />
+        </label>
+        <button type="submit" class="btn primary" id="query-btn">查询成绩</button>
+      </form>
+      <p id="error-msg" class="error-msg" hidden></p>
+      <p class="hint">身份证号仅在本机用于校验，不会上传或保存明文。</p>
+    </section>
+
+    <section id="result-section" class="result" hidden>
+      <div class="toolbar">
+        <button type="button" class="btn ghost" id="back-btn">重新查询</button>
+        <button type="button" class="btn primary" id="download-btn">下载整页成绩图</button>
+      </div>
+
+      <div id="capture-area" class="capture-area">
+        <div class="card student-header">
+          <div>
+            <h2 id="student-name"></h2>
+            <p class="meta"><span id="student-class"></span> · <span id="student-lang"></span></p>
+          </div>
+          <div class="brand">高三47班成绩查询</div>
+        </div>
+
+        <div class="card report-card" id="report-card">
+          <div class="section-title">
+            <h3>第二次综合考试成绩单</h3>
+            <span class="tag" id="electives"></span>
+          </div>
+          <div class="total-block" id="total-block"></div>
+          <div class="subjects" id="subjects"></div>
+        </div>
+
+        <div class="card history-card">
+          <div class="section-title">
+            <h3>成绩履历（共 <span id="exam-count">0</span> 次）</h3>
+          </div>
+          <div class="table-wrap">
+            <table class="history-table" id="history-table">
+              <thead>
+                <tr>
+                  <th>阶段</th>
+                  <th>总分</th>
+                  <th>级排</th>
+                  <th>语文</th>
+                  <th>级排</th>
+                  <th>数学</th>
+                  <th>级排</th>
+                  <th id="lang-col">外语</th>
+                  <th>级排</th>
+                  <th>历史</th>
+                  <th>级排</th>
+                  <th>政治</th>
+                  <th>级排</th>
+                  <th>生物</th>
+                  <th>级排</th>
+                </tr>
+              </thead>
+              <tbody id="history-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <p>仅供本班学生与家长查询 · 数据以学校公布为准</p>
+    </footer>
+  </div>
+</body>
+</html>
