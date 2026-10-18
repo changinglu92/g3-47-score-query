@@ -25,6 +25,7 @@
     historyBody: $("history-body"),
     examCount: $("exam-count"),
     langCol: $("lang-col"),
+    scienceCol: $("science-col"),
     capture: $("capture-area"),
     trendCanvas: $("trend-chart"),
     trendEmpty: $("trend-empty"),
@@ -88,10 +89,36 @@
     return `<td class="${cls}">${fmt(v)}</td>`;
   }
 
+
+  /** 选考第三科：含「化」用化学，否则用生物（全班几乎都是史生政，仅朱迪史化政）。 */
+  function scienceElective(student) {
+    const electives = (student.latest && student.latest["选考科目"]) || "";
+    if (electives.includes("化")) {
+      return {
+        label: "化学",
+        examScore: "化学",
+        examRank: "化学级排",
+        latestScore: (L) => L["化学"],
+        latestRank: "化学级排",
+        latestDelta: "化学进退步",
+      };
+    }
+    return {
+      label: "生物",
+      examScore: "生物",
+      examRank: "生物级排",
+      latestScore: (L) => L["生物学"] ?? L["生物"],
+      latestRank: "生物级排",
+      latestDelta: "生物进退步",
+    };
+  }
+
   function renderHistory(student) {
     const exams = student.exams || [];
+    const sci = scienceElective(student);
     els.examCount.textContent = String(exams.length);
     els.langCol.textContent = student.langLabel === "日语" ? "日语" : "英语";
+    if (els.scienceCol) els.scienceCol.textContent = sci.label;
     els.historyBody.innerHTML = exams
       .map((e) => {
         return `<tr>
@@ -108,8 +135,8 @@
           ${cell(e["历史级排"], "rank")}
           ${cell(e["政治"])}
           ${cell(e["政治级排"], "rank")}
-          ${cell(e["生物"])}
-          ${cell(e["生物级排"], "rank")}
+          ${cell(e[sci.examScore])}
+          ${cell(e[sci.examRank], "rank")}
         </tr>`;
       })
       .join("");
@@ -188,6 +215,7 @@
       ? subjectCard("日语", L["日语"], L["日语级排"], L["日语进退步"])
       : englishCard(L);
 
+    const sci = scienceElective(student);
     const row1 = [
       subjectCard("语文", L["语文"], L["语文级排"], L["语文进退步"]),
       subjectCard("数学", L["数学"], L["数学级排"], L["数学进退步"]),
@@ -196,7 +224,7 @@
     const row2 = [
       subjectCard("历史", L["历史"], L["历史级排"], L["历史进退步"]),
       subjectCard("政治", L["政治"], L["政治级排"], L["政治进退步"]),
-      subjectCard("生物", L["生物学"] ?? L["生物"], L["生物级排"], L["生物进退步"]),
+      subjectCard(sci.label, sci.latestScore(L), L[sci.latestRank], L[sci.latestDelta]),
     ].join("");
 
     els.subjects.innerHTML = `<div class="subject-row">${row1}</div><div class="subject-row">${row2}</div>`;
@@ -474,13 +502,14 @@
   function collectDeltas(student) {
     const L = student.latest || {};
     const isJp = student.langLabel === "日语";
+    const sci = scienceElective(student);
     const items = [
       { name: "总分", delta: L["总分进退步"], kind: "total" },
       { name: "语文", delta: L["语文进退步"], kind: "subject" },
       { name: "数学", delta: L["数学进退步"], kind: "subject" },
       { name: "历史", delta: L["历史进退步"], kind: "subject" },
       { name: "政治", delta: L["政治进退步"], kind: "subject" },
-      { name: "生物", delta: L["生物进退步"], kind: "subject" },
+      { name: sci.label, delta: L[sci.latestDelta], kind: "subject" },
     ];
     if (isJp) {
       items.push({ name: "日语", delta: L["日语进退步"], kind: "lang" });
